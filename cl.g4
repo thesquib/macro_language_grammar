@@ -4,75 +4,126 @@
 
 grammar cl;
 
-Letter
-	: [A-Za-z]
-	;
+/*
+CR : [\r];
+LF : [\n];
+LINE_TERMINATOR : CR LF;
+WS : [ \t];
 
-Digit
-	: [0-9]
-	;
+fragment
+NOT_CR_LF : ~[\n\r];
+fragment
+NOT_WS : ~[ \t];
 
-Cr : 
-  [\r];
+NOT_STAR : ~[\*];
+NOT_STAR_SLASH : ~[\*\\];
+*/
 
 
-Lf : 
-  [\n];
-  
-line_terminator_char : Cr Lf;
 
-Blank_char : 
-  [ \t];
-  
-Not_cr_lf : [^\n\r];
-Not_blank : [^ \t];
-Not_cr_lf_blank : [^\n\r \t];
-Not_star : [^\*];
-Not_star_slash : [^\*\\];
+//NOT_WS_CR_LF : ~[\n\r \t];
+//NOT_CR_LF_DQUOTE : ~[\n\r"];
 
-include			: 'include';
+INCLUDE			  : 'include';
 
-if_				: 'if';
-elseif			: 'else if';
-else_ 			: 'else';
-endif			: 'end if';
+IF           : 'if';
+ELSEIF			  : 'else if';
+ELSE 			  : 'else';
+ENDIF			    : 'end if';
 
-set_global		: 'setglobal';
-set				: 'set';
+SET_GLOBAL		: 'setglobal';
+SET				    : 'set';
 
-random			: 'random';
-norepeat		: 'no-repeat';
-or				: 'or';
-end_random		: 'end random';
+RANDOM			  : 'random';
+NOREPEAT		  : 'no-repeat';
+OR				    : 'or';
+END_RANDOM		: 'end random';
 
-label			: 'label';
-goto_			: 'goto';
+LABEL			    : 'label';
+GOTO			    : 'goto';
 
-call			: 'call';
+CALL			    : 'call';
 
-pause			: 'pause';
+PAUSE			    : 'pause';
 
-message			: 'message';
+MESSAGE			  : 'message';
 
-move			: 'move';
+MOVE			    : 'move';
 
-l_parenthese 	: '(';
-r_parenthese 	: ')';
+L_PARENTHESE 	: '(';
+R_PARENTHESE 	: ')';
 
-l_brace 		: '{';
-r_brace 		: '}';
+L_BRACE 		  : '{';
+R_BRACE 		  : '}';
 
-l_bracket 		: '[';
-r_bracket 		: ']';
+L_BRACKET 		: '[';
+R_BRACKET 		: ']';
 
 comparator    : '<='|'<'|'>='|'>'|'=='|'!=';
 operator      : '+'|'-'|'*'|'/'|'%';
 
+//SingleQuote  : '\''|'`';
+//DoubleQuote  : '"';
 
-//Not sure about these yet,
-//but I think they have to take a longer form
+ATTRIBUTE     : '$ignore_case'|'$any_click'|'$no_override';
+
+fragment
+Digit
+  : [0-9]
+  ;
+
+fragment
+Letter
+  : [a-zA-Z /@$\\]
+  ;
+
+Number
+  : Digit+
+  ;
+
+NewLine
+  : '\r'? '\n'
+ // -> channel(HIDDEN)
+  ;
+
+//WS : (' ' | '\t')+ -> channel(HIDDEN);
+
+// ----------
+// Whitespace
 //
-//attribute		: '$ignore_case'|'$any_click'|'$no_override';
+// Characters and character constructs that are of no import
+// to the parser and are used to make the grammar easier to read
+// for humans.
+//
+WS
+: [ \t\f]+
+-> channel(HIDDEN)
+;
+
+//single quotes mean do replacement e.g
+//'lol' 'laugh out loud'
+//will replace 'lol' with 'laugh out loud'
+SingleQuoted
+  : '\'' Letter* '\''
+  ;
+
+//double quotes specify a rule, like:
+//"lol" "/action laugh out loud"
+// or
+//"lol" {
+//  /action laugh out loud
+//  /pose celebrate  
+// }
+DoubleQuoted
+  : '"' Letter* '"'
+  ;
+
+//valid identifiers:
+// \abc /abc @abc $abc
+// \abc- /abc_ @abc. $abc[ $abc] 
+Identifier
+  : ('\\'|'/'|'@'|'$')? Letter (Letter|Digit|'-'|'_'|'.'|'['|']')*
+  ;
 
 BlockComment
     :   '/*' .*? '*/'
@@ -85,162 +136,106 @@ LineComment
     ;
 
 
+/* Rule Sets */
 
+macros
+  : macro*
+  ;
 
+macro
+  : include_macro
+  | set_macro
+  | line_macro
+  | block_macro
+  | NewLine
+  ;
 
+include_macro
+  : INCLUDE DoubleQuoted
+  ;
 
-/*
+set_macro
+  : set_or_set_global Identifier set_expression
+  ;
 
-Helpers
-  letter = ['A'..'Z']|['a'..'z'];
-  digit = ['0'..'9'];
-  cr = 13;
-  lf = 10;
-  
-  all = [0..0xFFFF];
- 
-  line_terminator_char = [cr + lf];
-  
-  blank_char = [' '+ '	'];
-  
-  not_cr_lf = [all - line_terminator_char];
-  not_blank = [all - blank_char];
-  not_cr_lf_blank = [not_cr_lf - blank_char];
-  not_star = [ all - '*' ];
-  not_star_slash = [ not_star - '/' ];
-  
-  single_quote=0x0027;
-Tokens
-  include			= 'include';
+line_macro
+  : trigger statement
+  ;
 
-  if				= 'if';
-  elseif			= 'else if';
-  else				= 'else';
-  endif				= 'end if';
+block_macro
+  : trigger NewLine statement_block
+  ;
 
-  set_global		= 'setglobal';
-  set				= 'set';
+trigger
+  : SingleQuoted
+  | DoubleQuoted
+  | Identifier
+  ;
 
-  random			= 'random';
-  norepeat			= 'no-repeat';
-  or				= 'or';
-  end_random		= 'end random';
+statement_block
+  : L_BRACE NewLine statements NewLine
+  ;
 
-  label				= 'label';
-  goto				= 'goto';
+statements
+  : statement*
+  ;
 
-  call				= 'call';
-  
-  pause				= 'pause';
+statement
+  : IF condition NewLine
+      statements
+      optional_else
+    ENDIF NewLine
+  | SET Identifier set_expression NewLine
+  | SET_GLOBAL Identifier set_expression NewLine
+  | RANDOM NOREPEAT? NewLine statements or_block* END_RANDOM NewLine
+  | LABEL Identifier NewLine
+  | GOTO Identifier NewLine
+  | CALL Identifier NewLine
+  | PAUSE Number NewLine
+  | MOVE Identifier Identifier? NewLine
+  | MESSAGE value+ NewLine
+  | ATTRIBUTE NewLine
+  | statement_block
+  | text_command
+  ;
 
-  message			= 'message';
+optional_else
+  : ELSEIF condition NewLine
+      statements
+      optional_else
+  | ELSE NewLine
+      statements
+  ; // | {empty}
 
-  move				= 'move';
+set_or_set_global
+  : SET
+  | SET_GLOBAL
+  ;
 
-  attribute			= '$ignore_case'|'$any_click'|'$no_override';
+or_block
+  : OR NewLine statements
+  ;
 
-  comparator 		= '<='|'<'|'>='|'>'|'=='|'!=';
+text_command
+  : value* NewLine
+  ;
 
-  operator			= '+'|'-'|'*'|'/'|'%';
+condition
+  : expression comparator expression
+  ;
 
-  l_parenthese = '(';
-  r_parenthese = ')';
+expression
+  : value
+  | value operator value
+  ;
 
-  l_brace = '{';
-  r_brace = '}';
-  
-  l_bracket = '[';
-  r_bracket = ']';
-  
-  number = digit+;
-  single_quoted = single_quote not_cr_lf_blank* single_quote;
-  quoted = '"' [not_cr_lf - '"']* '"';
+set_expression
+  : value
+  | operator value
+  ;
 
-  new_line = line_terminator_char*;
-
-  blank = blank_char*;
-
-  comment = '/*' not_star * '*' + ( not_star_slash not_star * '*' + ) * '/';
-  line_comment = '//' not_cr_lf *;
-  
-  identifier		= ('\'|'/'|'@'|'$')? letter (letter|digit|'-'|'_'|'.'|'['|']')*;
-
-Ignored Tokens
-  blank, comment, line_comment;
-
-Productions
-  macros	=	macro*;
-
-  macro		=	{include_macro}	include_macro|
-  				{set_macro}		set_macro|
-  				{line_macro}	line_macro|
-  				{block_macro}	block_macro|
-  				{new_line}		new_line;
-
-  include_macro=				include quoted;
-
-  set_macro=	set_or_set_global identifier set_expression;
-
-  line_macro=					trigger statement;
-
-  block_macro=					trigger new_line statement_block;
-
-  trigger	=	{single_quoted}	single_quoted|
-  				{quoted}		quoted|
-  				{identifier}	identifier;
-  
-  statement_block	=	l_brace [nl1]:new_line statements r_brace [nl2]:new_line;
-
-  statements		=	statement*;
-
-  statement = 
-    {if}         		if condition [nl1]:new_line
-                   			statements
-                   			optional_else
-                 		endif [nl2]:new_line|
-    {set}		 		set identifier set_expression new_line|
-    {set_global}	 	set_global identifier set_expression new_line|
-    {random}	 		random norepeat? [nl1]:new_line statements or_block* end_random [nl2]:new_line|
-	{label}				label identifier new_line|
-	{goto}				goto identifier new_line|
-	{call}				call identifier new_line|
-	{pause}				pause number new_line|
-	{move}				move [speed]:identifier [direction]:identifier? new_line|
-	{message}			message value+ new_line|
-	{attribute}			attribute new_line|
-	{statement_block}	statement_block|
-	{text_command}	 	text_command;
-	
-  optional_else = 
-    {elseif}  elseif condition [nl1]:new_line
-              	statements
-              	optional_else|
-    {else}  else new_line
-              statements |
-    {empty} ;
-  
-  set_or_set_global=	{set}			set|
-  						{set_global}	set_global;
-  
-  or_block	=	or new_line statements;
-  
-  text_command	=	value* new_line;
-  
-  condition =	[left]:expression comparator    [right]:expression;
-
-  expression =
-    {value} value |
-    {operator}  [left]:value operator [right]:value;
-
-  set_expression =
-    {value} value |
-    {operator}  operator  value;
-
-  value =
-    {quoted}     quoted |
-    {constant}   number |
-    {identifier} identifier;
-
-
-    */
-
+value
+  : DoubleQuoted
+  | Number
+  | Identifier
+  ;
