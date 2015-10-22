@@ -4,26 +4,7 @@
 
 grammar cl;
 
-/*
-CR : [\r];
-LF : [\n];
-LINE_TERMINATOR : CR LF;
-WS : [ \t];
-
-fragment
-NOT_CR_LF : ~[\n\r];
-fragment
-NOT_WS : ~[ \t];
-
-NOT_STAR : ~[\*];
-NOT_STAR_SLASH : ~[\*\\];
-*/
-
-
-
-//NOT_WS_CR_LF : ~[\n\r \t];
-//NOT_CR_LF_DQUOTE : ~[\n\r"];
-
+/************* LEXER ************/
 INCLUDE			  : 'include';
 
 IF           : 'if';
@@ -59,11 +40,8 @@ R_BRACE 		  : '}';
 L_BRACKET 		: '[';
 R_BRACKET 		: ']';
 
-comparator    : '<='|'<'|'>='|'>'|'=='|'!=';
-operator      : '+'|'-'|'*'|'/'|'%';
-
-//SingleQuote  : '\''|'`';
-//DoubleQuote  : '"';
+Comparator    : '<='|'<'|'>='|'>'|'=='|'!=';
+Operator      : '+'|'-'|'*'|'/'|'%';
 
 ATTRIBUTE     : '$ignore_case'|'$any_click'|'$no_override';
 
@@ -74,16 +52,25 @@ Digit
 
 fragment
 Letter
-  : [a-zA-Z /@$\\]
+  : ~[\n"]
+  //[a-zA-Z0-9 \r!/@$\\]
+  ;
+
+fragment
+IdentifierLetter
+  : [a-zA-Z]
   ;
 
 Number
   : Digit+
   ;
 
-NewLine
-  : '\r'? '\n'
- // -> channel(HIDDEN)
+fragment NL : '\r''\n' | '\n' | '\r';
+
+NEWLINE
+  : NL+
+//  -> channel(HIDDEN)
+// -> skip
   ;
 
 //WS : (' ' | '\t')+ -> channel(HIDDEN);
@@ -122,16 +109,16 @@ DoubleQuoted
 // \abc /abc @abc $abc
 // \abc- /abc_ @abc. $abc[ $abc] 
 Identifier
-  : ('\\'|'/'|'@'|'$')? Letter (Letter|Digit|'-'|'_'|'.'|'['|']')*
+  : ('\\'|'/'|'@'|'$')? IdentifierLetter (IdentifierLetter|Digit|'-'|'_'|'.'|'['|']')*
   ;
 
 BlockComment
-    :   '/*' .*? '*/'
+    :   '/*' .*? '*/'  NEWLINE?
         -> skip
     ;
 
 LineComment
-    :   '//' ~[\r\n]*
+    :   '//' ~[\r\n]* NEWLINE?
         -> skip
     ;
 
@@ -147,7 +134,7 @@ macro
   | set_macro
   | line_macro
   | block_macro
-  | NewLine
+  | NEWLINE
   ;
 
 include_macro
@@ -163,7 +150,7 @@ line_macro
   ;
 
 block_macro
-  : trigger NewLine statement_block
+  : trigger NEWLINE statement_block 
   ;
 
 trigger
@@ -173,7 +160,7 @@ trigger
   ;
 
 statement_block
-  : L_BRACE NewLine statements NewLine
+  : L_BRACE NEWLINE statements R_BRACE NEWLINE
   ;
 
 statements
@@ -181,31 +168,41 @@ statements
   ;
 
 statement
-  : IF condition NewLine
+  : conditional_statement
+  | SET Identifier set_expression NEWLINE
+  | SET_GLOBAL Identifier set_expression NEWLINE
+  | RANDOM NOREPEAT? NEWLINE statements or_block* END_RANDOM NEWLINE
+  | LABEL Identifier NEWLINE
+  | GOTO Identifier NEWLINE
+  | CALL Identifier NEWLINE?
+  | PAUSE pause_statement NEWLINE
+  | MOVE Identifier Identifier? NEWLINE
+  | MESSAGE value+ NEWLINE
+  | ATTRIBUTE NEWLINE
+  | statement_block
+  | text_command NEWLINE
+  ;
+
+pause_statement
+  : Number
+  | Identifier
+  ;
+
+conditional_statement
+  : IF condition NEWLINE
       statements
       optional_else
-    ENDIF NewLine
-  | SET Identifier set_expression NewLine
-  | SET_GLOBAL Identifier set_expression NewLine
-  | RANDOM NOREPEAT? NewLine statements or_block* END_RANDOM NewLine
-  | LABEL Identifier NewLine
-  | GOTO Identifier NewLine
-  | CALL Identifier NewLine
-  | PAUSE Number NewLine
-  | MOVE Identifier Identifier? NewLine
-  | MESSAGE value+ NewLine
-  | ATTRIBUTE NewLine
-  | statement_block
-  | text_command
+    ENDIF NEWLINE
   ;
 
 optional_else
-  : ELSEIF condition NewLine
+  : ELSEIF condition NEWLINE
       statements
       optional_else
-  | ELSE NewLine
+  | ELSE  NEWLINE
       statements
-  ; // | {empty}
+  |
+  ;
 
 set_or_set_global
   : SET
@@ -213,25 +210,25 @@ set_or_set_global
   ;
 
 or_block
-  : OR NewLine statements
+  : OR statements
   ;
 
 text_command
-  : value* NewLine
+  : value+
   ;
 
 condition
-  : expression comparator expression
+  : expression Comparator expression
   ;
 
 expression
   : value
-  | value operator value
+  | value Operator value
   ;
 
 set_expression
   : value
-  | operator value
+  | Operator value
   ;
 
 value
