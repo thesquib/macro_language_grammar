@@ -210,7 +210,7 @@ set_or_set_global
   ;
 
 or_block
-  : OR statements
+  : OR NEWLINE? statements
   ;
 
 text_command
