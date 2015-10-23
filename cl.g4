@@ -62,7 +62,7 @@ IdentifierLetter
   ;
 
 Number
-  : Digit+
+  : [-]? Digit+
   ;
 
 fragment NL : '\r''\n' | '\n' | '\r';
@@ -181,6 +181,7 @@ statement
   | ATTRIBUTE NEWLINE
   | statement_block
   | text_command NEWLINE
+  | NEWLINE
   ;
 
 pause_statement
