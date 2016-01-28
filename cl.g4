@@ -1,5 +1,5 @@
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
- * Grammar for the Clan Lord Macro Language                        *
+ * Grammar for the CL Macro Language                               *
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 grammar cl;
